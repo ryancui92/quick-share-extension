@@ -13,6 +13,13 @@ const props = defineProps<{
   customThemes?: QuickShareTheme[];
 }>();
 
+const mediaLayout = (count: number) => ({
+  'qs-media-mosaic': count > 1,
+  'qs-media-three': count === 3,
+  'qs-media-four': count === 4,
+  'qs-media-many': count > 4,
+});
+
 const currentTheme = computed<QuickShareTheme>(() => {
   return getThemeById(props.options.themeId, props.customThemes);
 });
@@ -23,6 +30,14 @@ const excerpt = computed(() => prepareExcerpt(
   props.post.excerptAfterHtml || ''
 ));
 const excerptContent = computed(() => props.post.isExcerpt ? excerpt.value.content : props.post.contentHtml);
+// 一级评论使用已有上下文；兼容旧版显式传入的父帖数据。
+const quotedPost = computed(() => {
+  if (props.post.isExcerpt) return undefined;
+  const candidate = props.post.parentThreadPost || (
+    !props.post.contextThread?.parentPost ? props.post.contextThread?.rootPost : undefined
+  );
+  return candidate && candidate.id !== props.post.id ? candidate : undefined;
+});
 const excerptBefore = computed(() => excerpt.value.before);
 const excerptAfter = computed(() => excerpt.value.after);
 
@@ -206,7 +221,7 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
   <div
     class="qs-card-wrapper"
     :data-theme="currentTheme.id"
-    :class="{ 'has-outer-padding': options.showOuterPadding, 'qs-wechat-article': isWechatArticle }"
+    :class="{ 'has-outer-padding': options.showOuterPadding, 'qs-wechat-article': isWechatArticle, 'has-reply-quote': !!quotedPost }"
     :style="themeCssVars"
   >
     <!-- 环境空间弥散光核层 (Ambient Glows) -->
@@ -240,7 +255,7 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
       />
 
       <!-- Header: 作者或文章标题；Thread 模式使用下方专属连线 Header -->
-      <div v-if="!post.parentThreadPost" class="qs-card-header" :class="{ 'qs-title-header': titleOnlyHeader }">
+      <div class="qs-card-header" :class="{ 'qs-title-header': titleOnlyHeader }">
         <div v-if="titleOnlyHeader" class="qs-title-meta">
           <h3 v-if="headerTitle" class="qs-header-title">{{ headerTitle }}</h3>
           <time v-if="formatPostDate(post.createdAt)" class="qs-post-date" :datetime="post.createdAt">{{ formatPostDate(post.createdAt) }}</time>
@@ -285,163 +300,6 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
       </div>
 
       <!-- Content 区域 -->
-      <!-- A. Thread 连线对话链模式 (主帖/上级回复 + 当前评论) -->
-      <div v-if="post.parentThreadPost" class="qs-thread-wrapper">
-        <div class="qs-thread-container">
-          <!-- 1. 上级推文 (Parent / Root Tweet) -->
-          <div class="qs-thread-item qs-thread-parent">
-            <div class="qs-thread-left-col">
-              <img
-                v-if="post.parentThreadPost.author.avatarUrl"
-                :src="post.parentThreadPost.author.avatarUrl"
-                alt="avatar"
-                class="qs-avatar-img"
-                :style="avatarRadiusStyle"
-                crossorigin="anonymous"
-              />
-              <div
-                v-else
-                class="qs-avatar-fallback"
-                :style="avatarRadiusStyle"
-              >
-                {{ post.parentThreadPost.author.name.slice(0, 1) }}
-              </div>
-              <!-- 垂直连接线 -->
-              <div class="qs-thread-connector-line" />
-            </div>
-
-            <div class="qs-thread-right-col">
-              <div class="qs-author-meta">
-                <div class="qs-author-line">
-                  <span class="qs-author-name">{{ post.parentThreadPost.author.name }}</span>
-                  <span v-if="post.parentThreadPost.author.handle" class="qs-author-handle">{{ post.parentThreadPost.author.handle }}</span>
-                </div>
-                <time v-if="formatPostDate(post.parentThreadPost.createdAt)" class="qs-post-date" :datetime="post.parentThreadPost.createdAt">{{ formatPostDate(post.parentThreadPost.createdAt) }}</time>
-              </div>
-
-              <!-- 上级推文正文 -->
-              <div class="qs-thread-body">
-                <div
-                  v-if="post.parentThreadPost.contentHtml"
-                  class="quick-share-rich-body"
-                  :style="{
-                    fontSize: `${15 * options.fontScale}px`,
-                    lineHeight: 1.7,
-                  }"
-                  v-html="post.parentThreadPost.contentHtml"
-                />
-                <p
-                  v-else
-                  class="qs-plain-content"
-                  :style="{
-                    fontSize: `${15 * options.fontScale}px`,
-                    lineHeight: 1.7,
-                  }"
-                >
-                  {{ post.parentThreadPost.content }}
-                </p>
-              </div>
-
-              <!-- 上级推文配图/媒体 -->
-              <div
-                v-if="post.parentThreadPost.media && post.parentThreadPost.media.length > 0"
-                class="qs-media-gallery"
-                style="margin-top: 10px;"
-              >
-                <div
-                  v-for="(item, idx) in post.parentThreadPost.media"
-                  :key="idx"
-                  class="qs-media-item"
-                >
-                  <img
-                    :src="item.posterUrl || item.url"
-                    alt="media"
-                    class="qs-media-img"
-                    crossorigin="anonymous"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 2. 当前评论推文 (Target Reply Tweet) -->
-          <div class="qs-thread-item qs-thread-current">
-            <div class="qs-thread-left-col">
-              <img
-                v-if="post.author.avatarUrl"
-                :src="post.author.avatarUrl"
-                alt="avatar"
-                class="qs-avatar-img"
-                :style="avatarRadiusStyle"
-                crossorigin="anonymous"
-              />
-              <div
-                v-else
-                class="qs-avatar-fallback"
-                :style="avatarRadiusStyle"
-              >
-                {{ post.author.name.slice(0, 1) }}
-              </div>
-            </div>
-
-            <div class="qs-thread-right-col">
-              <div class="qs-author-meta">
-                <div class="qs-author-line">
-                  <span class="qs-author-name">{{ post.author.name }}</span>
-                  <span v-if="post.author.handle" class="qs-author-handle">{{ post.author.handle }}</span>
-                </div>
-                <time v-if="formatPostDate(post.createdAt)" class="qs-post-date" :datetime="post.createdAt">{{ formatPostDate(post.createdAt) }}</time>
-              </div>
-
-              <!-- 评论正文 -->
-              <div class="qs-thread-body">
-                <div
-                  v-if="post.contentHtml"
-                  class="quick-share-rich-body"
-                  :style="{
-                    fontSize: `${15 * options.fontScale}px`,
-                    lineHeight: 1.7,
-                  }"
-                  v-html="excerptContent"
-                />
-                <p
-                  v-else
-                  class="qs-plain-content"
-                  :style="{
-                    fontSize: `${15 * options.fontScale}px`,
-                    lineHeight: 1.7,
-                  }"
-                >
-                  {{ post.content }}
-                </p>
-              </div>
-
-              <!-- 评论配图/媒体 -->
-              <div
-                v-if="post.media && post.media.length > 0"
-                class="qs-media-gallery"
-                style="margin-top: 10px;"
-              >
-                <div
-                  v-for="(item, idx) in post.media"
-                  :key="idx"
-                  class="qs-media-item"
-                >
-                  <img
-                    :src="item.posterUrl || item.url"
-                    alt="media"
-                    class="qs-media-img"
-                    crossorigin="anonymous"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- B. 标准单推文/文章模式 -->
-      <template v-else>
         <!-- Content: 标题（如有）与正文/图文流 -->
         <div class="qs-card-content">
           <!-- 1. AI 对话场景：用户提问 Prompt -->
@@ -542,10 +400,11 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
           </template>
         </div>
 
-        <!-- Media: X / 独立媒体图片/视频 (100% 宽度，高度自动撑高) -->
+        <!-- 帖子附图：单图原比例，多图使用紧凑网格 -->
         <div
           v-if="!post.isExcerpt && post.media && post.media.length > 0"
           class="qs-media-gallery"
+          :class="mediaLayout(post.media.length)"
         >
           <div
             v-for="(item, idx) in post.media"
@@ -583,7 +442,29 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
             />
           </div>
         </div>
-      </template>
+
+      <div v-if="quotedPost" class="quick-share-quote-tweet qs-reply-quote">
+        <div class="quick-share-quote-header qs-reply-quote-header">
+          <img v-if="quotedPost.author.avatarUrl" :src="quotedPost.author.avatarUrl" class="quick-share-quote-avatar" alt="avatar" crossorigin="anonymous" />
+          <span v-else class="quick-share-quote-avatar qs-quote-avatar-fallback">{{ quotedPost.author.name.slice(0, 1) }}</span>
+          <span class="quick-share-quote-name">{{ quotedPost.author.name }}</span>
+          <span v-if="quotedPost.author.handle" class="quick-share-quote-handle">{{ quotedPost.author.handle }}</span>
+          <time v-if="formatPostDate(quotedPost.createdAt)" class="quick-share-quote-time" :datetime="quotedPost.createdAt">{{ formatPostDate(quotedPost.createdAt) }}</time>
+        </div>
+        <div class="quick-share-quote-text" :style="{ fontSize: `${13.5 * options.fontScale}px` }">
+          <div v-if="quotedPost.contentHtml" class="quick-share-rich-body" v-html="quotedPost.contentHtml" />
+          <p v-else class="qs-plain-content">{{ quotedPost.content }}</p>
+        </div>
+        <div v-if="quotedPost.media?.length" class="quick-share-quote-media-grid" :class="mediaLayout(quotedPost.media.length)">
+          <div v-for="(item, index) in quotedPost.media" :key="index" :class="{ 'quick-share-video-container': item.type === 'video' }">
+            <img :src="item.posterUrl || item.url" class="quick-share-quote-img" alt="media" crossorigin="anonymous" />
+            <template v-if="item.type === 'video'">
+              <div class="qs-video-play-badge"><svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 ml-0.5"><path d="M8 5v14l11-7z" /></svg></div>
+              <div v-if="item.duration" class="qs-video-duration-badge">{{ item.duration }}</div>
+            </template>
+          </div>
+        </div>
+      </div>
 
       <!-- Footer: 原文链接与站点图标 -->
       <div
@@ -1148,6 +1029,37 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
   margin-bottom: 0;
 }
 
+.has-reply-quote .qs-card-content,
+.has-reply-quote .qs-media-gallery {
+  margin-bottom: 0;
+}
+.has-reply-quote .qs-reply-quote {
+  margin-top: 18px;
+  margin-bottom: 24px;
+}
+.qs-reply-quote-header {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.qs-reply-quote-header .quick-share-quote-name {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.qs-quote-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--qs-table-border);
+  color: var(--qs-text-secondary);
+  font-size: 11px;
+}
+.qs-reply-quote .quick-share-quote-media-grid:not(.qs-media-mosaic) .quick-share-quote-img {
+  max-height: none;
+  object-fit: contain;
+}
+
 /* X (Twitter) 转发原帖引用卡片 (Quote Tweet Box) */
 :deep(.quick-share-quote-tweet) {
   margin-top: 14px;
@@ -1472,6 +1384,47 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
   margin: 0 auto;
 }
 
+/* 同一套网格用于帖子附图、评论引用以及原生引用帖。 */
+:deep(.qs-media-mosaic) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+:deep(.qs-media-mosaic > *) {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 4px;
+}
+:deep(.qs-media-mosaic img),
+:deep(.qs-media-mosaic .quick-share-video-container) {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 4px;
+}
+:deep(.qs-media-three),
+:deep(.qs-media-four) {
+  aspect-ratio: 4 / 3;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+:deep(.qs-media-three > *),
+:deep(.qs-media-four > *) {
+  height: 100%;
+  aspect-ratio: auto;
+}
+:deep(.qs-media-three > :first-child) {
+  grid-row: span 2;
+}
+:deep(.qs-media-many) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 /* 视频容器与播放微标 / 时长胶囊 */
 .quick-share-video-container {
   position: relative;
@@ -1557,69 +1510,6 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
   border-radius: 4px;
   letter-spacing: 0.02em;
   pointer-events: none;
-}
-
-/* Thread 对话链连线布局 */
-.qs-thread-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-}
-
-
-
-.qs-thread-container {
-  display: flex;
-  flex-direction: column;
-  gap: 0px;
-  width: 100%;
-}
-
-.qs-thread-item {
-  display: flex;
-  flex-direction: row;
-  gap: 12px;
-  position: relative;
-  width: 100%;
-}
-
-.qs-thread-parent {
-  padding-bottom: 18px;
-}
-
-.qs-thread-current {
-  padding-top: 2px;
-}
-
-.qs-thread-left-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  width: 44px;
-}
-
-.qs-thread-connector-line {
-  width: 2px;
-  flex: 1;
-  min-height: 28px;
-  margin-top: 6px;
-  margin-bottom: -2px;
-  background-color: var(--qs-text-muted);
-  opacity: 0.28;
-  border-radius: 9999px;
-}
-
-.qs-thread-right-col {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.qs-thread-body {
-  margin-top: 6px;
 }
 
 /* Footer */

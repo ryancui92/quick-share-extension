@@ -151,6 +151,17 @@ describe('ShareCard 组件 DOM 结构渲染与保真度测试', () => {
     });
   });
 
+  it.each([1, 2, 3, 4, 6])('lays out %i attachments without changing their order', count => {
+    const media = Array.from({ length: count }, (_, i) => ({ type: 'image' as const, url: `https://example.com/${i}.jpg` }));
+    const wrapper = mount(ShareCard, { props: { post: { ...samplePost, media }, options: defaultOptions } });
+    const gallery = wrapper.get('.qs-media-gallery');
+    expect(gallery.classes().includes('qs-media-mosaic')).toBe(count > 1);
+    expect(gallery.classes().includes('qs-media-three')).toBe(count === 3);
+    expect(gallery.classes().includes('qs-media-four')).toBe(count === 4);
+    expect(gallery.classes().includes('qs-media-many')).toBe(count > 4);
+    expect(gallery.findAll('img').map(img => img.attributes('src'))).toEqual(media.map(item => item.url));
+  });
+
   describe('Web article headers', () => {
     it('puts the title and source date at the top when there is no author', () => {
       const wrapper = mount(ShareCard, { props: {
@@ -186,8 +197,27 @@ describe('ShareCard 组件 DOM 结构渲染与保真度测试', () => {
     });
   });
 
+  describe('Reply quote cards', () => {
+    const root: PostData = { id: 'root', platform: 'x', url: 'https://x.com/author/status/1', author: { name: 'Original author', handle: '@author' }, content: 'Original post', createdAt: '2026-09-20T01:00:00Z', media: [{ type: 'video', url: 'https://example.com/video', posterUrl: 'https://example.com/poster.png', duration: '1:20' }] };
+    it.each(['raycast-dark', 'liquid-glass', 'craft-editorial'])('shows comment then root with video and date in %s', themeId => {
+      const wrapper = mount(ShareCard, { props: { post: { ...samplePost, platform: 'x', contentHtml: '<p>My reply</p>', contextThread: { rootPost: root } }, options: { ...defaultOptions, themeId } } });
+      expect(wrapper.get('.qs-card-header').text()).toContain(samplePost.author.name);
+      expect(wrapper.html().indexOf('My reply')).toBeLessThan(wrapper.html().indexOf('Original post'));
+      expect(wrapper.get('.qs-reply-quote time').attributes('datetime')).toBe(root.createdAt);
+      expect(wrapper.get('.qs-reply-quote img').attributes('src')).toBe('https://example.com/poster.png');
+      expect(wrapper.get('.qs-reply-quote .qs-video-duration-badge').text()).toBe('1:20');
+      expect(wrapper.get('.qs-footer-url').text()).toBe(samplePost.url);
+    });
+    it('does not attach root to excerpts or secondary replies', () => {
+      for (const extra of [{ isExcerpt: true }, { contextThread: { rootPost: root, parentPost: root } }]) {
+        const wrapper = mount(ShareCard, { props: { post: { ...samplePost, contextThread: { rootPost: root }, ...extra }, options: defaultOptions } });
+        expect(wrapper.find('.qs-reply-quote').exists()).toBe(false);
+      }
+    });
+  });
+
   describe('5. Thread 对话链模式渲染', () => {
-    it('当存在 parentThreadPost 时，正确渲染主帖与回复两级结构及连线容器', () => {
+    it('兼容旧父帖数据，评论在上、主帖引用在下', () => {
       const threadPost: PostData = {
         id: 'https://x.com/user2/status/2',
         platform: 'x',
@@ -219,8 +249,9 @@ describe('ShareCard 组件 DOM 结构渲染与保真度测试', () => {
       });
 
       // 验证 Thread 对话链专属结构与垂直连线
-      expect(wrapper.find('.qs-thread-container').exists()).toBe(true);
-      expect(wrapper.find('.qs-thread-connector-line').exists()).toBe(true);
+      expect(wrapper.find('.qs-reply-quote').exists()).toBe(true);
+      expect(wrapper.html().indexOf('这是当前回复的内容')).toBeLessThan(wrapper.html().indexOf('这是主帖推文内容'));
+      expect(wrapper.find('.qs-thread-connector-line').exists()).toBe(false);
 
       // 验证主帖与回复两者的作者信息与内容均存在于卡片中
       expect(wrapper.text()).toContain('主帖作者');

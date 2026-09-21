@@ -8,6 +8,15 @@ describe('XAdapter 结构解析与数据提取测试', () => {
   beforeEach(() => {
     adapter = new XAdapter();
     document.body.innerHTML = '';
+    Object.defineProperty(window, 'location', { value: new URL('https://x.com/elonmusk/status/1000'), writable: true });
+  });
+
+  it('does not attach an unrelated earlier tweet from the home feed', async () => {
+    Object.defineProperty(window, 'location', { value: new URL('https://x.com/home'), writable: true });
+    document.body.innerHTML = X_TWEET_SIMPLE_HTML + X_TWEET_SIMPLE_HTML.replaceAll('123456789', '987654321');
+    const tweets = document.querySelectorAll<HTMLElement>('article');
+    const post = await adapter.extract(tweets[1]);
+    expect(post?.contextThread).toBeUndefined();
   });
 
   describe('1. 路由与 URL 匹配', () => {

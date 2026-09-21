@@ -524,8 +524,8 @@ export class XAdapter extends BaseAdapter {
       const currentTweetId = this.extractTweetId(tweet);
       const focalTweetId = this.getFocalTweetId();
 
-      // 1. 如果当前被点击的推文就是页面主帖（Focal Tweet），没有任何向上上下文，直接返回 undefined
-      if (focalTweetId && currentTweetId && currentTweetId === focalTweetId) {
+      // 只关联详情页已加载的主帖；首页/搜索结果不能按 DOM 顺序猜测关系。
+      if (!focalTweetId || !currentTweetId || currentTweetId === focalTweetId) {
         return undefined;
       }
 
@@ -540,12 +540,10 @@ export class XAdapter extends BaseAdapter {
       let rootTweet: HTMLElement | null = null;
       if (focalTweetId) {
         rootTweet = allTweets.find((t) => this.extractTweetId(t) === focalTweetId) || null;
-      } else if (currentIndex > 0) {
-        rootTweet = allTweets[0];
       }
 
-      // 如果当前推文自身就是 rootTweet，直接返回 undefined
-      if (rootTweet && rootTweet === tweet) {
+      // 主帖必须已加载且位于当前评论之前，不能引用自己或后续推荐。
+      if (!rootTweet || allTweets.indexOf(rootTweet) >= currentIndex) {
         return undefined;
       }
 
@@ -708,7 +706,7 @@ export class XAdapter extends BaseAdapter {
 
     // Media
     if (quoteImgs.length > 0) {
-      const gridClass = quoteImgs.length === 1 ? 'grid-cols-1' : 'grid-cols-2';
+      const gridClass = quoteImgs.length === 1 ? 'grid-cols-1' : `qs-media-mosaic ${quoteImgs.length === 3 ? 'qs-media-three' : quoteImgs.length === 4 ? 'qs-media-four' : quoteImgs.length > 4 ? 'qs-media-many' : ''}`;
       html += `<div class="quick-share-quote-media-grid ${gridClass}">`;
       quoteImgs.forEach((src) => {
         html += `<img class="quick-share-quote-img" src="${src}" alt="media" crossorigin="anonymous" />`;
