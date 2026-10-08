@@ -27,8 +27,6 @@ import {
 import {
   getLastCardTheme,
   setLastCardTheme,
-  getLastShowOuterPadding,
-  setLastShowOuterPadding,
 } from '@/utils/storage';
 import {
   Copy,
@@ -376,16 +374,11 @@ const selectTheme = (themeId: CardThemeId) => {
   setLastCardTheme(themeId);
 };
 
-const toggleOuterPadding = () => {
-  options.showOuterPadding = !options.showOuterPadding;
-  setLastShowOuterPadding(options.showOuterPadding);
-};
-
 const handleKeyDown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    emit('close');
-  }
+  if (!props.visible || event.key !== 'Escape') return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  emit('close');
 };
 
 let resizeObserver: ResizeObserver | null = null;
@@ -394,11 +387,10 @@ onMounted(async () => {
   const root = dialogRef.value?.getRootNode() as Document | ShadowRoot;
   previousFocus = root?.activeElement as HTMLElement | null;
   dialogRef.value?.focus();
-  // 恢复主题与背景留白偏好
-  const [loadedCustoms, savedTheme, savedOuterPadding] = await Promise.all([
+  // 恢复主题偏好；卡片始终保留背景留白。
+  const [loadedCustoms, savedTheme] = await Promise.all([
     loadCustomThemes(),
     getLastCardTheme(),
-    getLastShowOuterPadding(),
   ]);
   customThemes.value = loadedCustoms;
 
@@ -408,8 +400,6 @@ onMounted(async () => {
   } else {
     options.themeId = 'raycast-dark';
   }
-  options.showOuterPadding = savedOuterPadding;
-
   await nextTick();
 
   if (props.post) {
@@ -429,7 +419,7 @@ onMounted(async () => {
   window.addEventListener('resize', updateWindowSize);
   window.addEventListener('mousemove', handleMouseMove);
   window.addEventListener('mouseup', handleMouseUp);
-  window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('keydown', handleKeyDown, true);
 });
 
 onUnmounted(() => {
@@ -444,7 +434,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateWindowSize);
   window.removeEventListener('mousemove', handleMouseMove);
   window.removeEventListener('mouseup', handleMouseUp);
-  window.removeEventListener('keydown', handleKeyDown);
+  window.removeEventListener('keydown', handleKeyDown, true);
   if (renderTimer) clearTimeout(renderTimer);
   if (previewDataUrl.value) {
     URL.revokeObjectURL(previewDataUrl.value);
@@ -462,18 +452,15 @@ watch(
     isCopying.value = false;
     if (copyNoticeTimer) clearTimeout(copyNoticeTimer);
     if (newVal) {
-      const [loadedCustoms, savedTheme, savedOuterPadding] = await Promise.all([
+      const [loadedCustoms, savedTheme] = await Promise.all([
         loadCustomThemes(),
         getLastCardTheme(),
-        getLastShowOuterPadding(),
       ]);
       customThemes.value = loadedCustoms;
       if (savedTheme) {
         const resolved = getThemeById(savedTheme, loadedCustoms);
         options.themeId = resolved.id;
       }
-      options.showOuterPadding = savedOuterPadding;
-
       await nextTick();
       triggerRender();
     }
@@ -483,7 +470,6 @@ watch(
 watch(
   [
     () => options.themeId,
-    () => options.showOuterPadding,
     () => options.padding,
     () => options.fontScale,
     () => options.showWatermark,
@@ -581,20 +567,6 @@ watch(
               @click="selectTheme(theme.id)"
             >
               <ThemeOrb :theme="theme" />
-            </button>
-          </div>
-          <span class="toolbar-divider" />
-          <div class="padding-control">
-            <span>留白</span
-            ><button
-              class="toggle"
-              role="switch"
-              :aria-checked="options.showOuterPadding"
-              aria-label="背景留白"
-              title="背景留白"
-              @click="toggleOuterPadding"
-            >
-              <span />
             </button>
           </div>
         </div>
@@ -746,13 +718,16 @@ watch(
   flex-shrink: 0;
   border-radius: 50%;
   position: relative;
+  transition: box-shadow .18s ease, transform .18s ease, opacity .18s ease;
 }
 .theme-choice.selected {
-  outline: 1.5px solid var(--editor-accent);
-  outline-offset: 3px;
+  box-shadow: 0 0 0 3px rgba(48, 60, 70, .22), 0 4px 10px rgba(29, 40, 48, .1);
 }
-.theme-choice:hover {
-  transform: translateY(-1px);
+.theme-choice.selected:hover {
+  box-shadow: 0 0 0 3px rgba(48, 60, 70, .27), 0 4px 10px rgba(29, 40, 48, .1);
+}
+.theme-choice:not(.selected):hover {
+  transform: scale(1.04);
 }
 .theme-choice:not(.selected) {
   opacity: 0.82;
@@ -760,50 +735,11 @@ watch(
 .theme-choice:hover {
   opacity: 1;
 }
-.toolbar-divider {
-  width: 1px;
-  height: 22px;
-  background: var(--editor-line);
-  flex-shrink: 0;
-}
-.padding-control {
-  display: flex;
-  gap: 9px;
-  align-items: center;
-  color: var(--editor-muted);
-  font-size: 11px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
 .export-actions {
   display: flex;
   gap: 8px;
   align-items: center;
   flex-shrink: 0;
-}
-.toggle {
-  width: 36px;
-  height: 22px;
-  padding: 3px;
-  border: 0;
-  background: rgba(74, 88, 101, 0.18);
-  border-radius: 999px;
-  box-shadow: inset 0 1px 3px #17223218;
-}
-.toggle span {
-  display: block;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, #fff, #edf1f4);
-  box-shadow: 0 1px 4px #17223230;
-  transition: transform 0.2s ease;
-}
-.toggle[aria-checked='true'] {
-  background: linear-gradient(135deg, #677d88, #3f5663);
-}
-.toggle[aria-checked='true'] span {
-  transform: translateX(14px);
 }
 .preview-panel {
   position: relative;
@@ -952,8 +888,6 @@ watch(
   .appearance-controls { gap: 8px; }
   .theme-picker { gap: 8px; }
   .theme-choice { width: 28px; height: 28px; }
-  .toolbar-divider { display: none; }
-  .padding-control { gap: 6px; }
   .export-actions { gap: 6px; }
   .export-actions button { width: 32px; height: 34px; min-height: 34px; }
 }

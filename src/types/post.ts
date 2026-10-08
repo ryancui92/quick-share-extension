@@ -30,6 +30,8 @@ export interface PostData {
   promptHtml?: string;
   content: string;
   contentHtml?: string;
+  /** X 的原生引用帖，渲染在当前帖附图之后。 */
+  quoteHtml?: string;
   isExcerpt?: boolean;
   excerptBeforeHtml?: string;
   excerptAfterHtml?: string;

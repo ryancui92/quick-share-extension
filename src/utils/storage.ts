@@ -3,7 +3,6 @@ import type { CardThemeId } from '@/types/theme';
 export type UiThemeMode = 'system' | 'light' | 'dark';
 
 export const KEY_LAST_CARD_THEME = 'quickshare_last_card_theme';
-export const KEY_LAST_SHOW_OUTER_PADDING = 'quickshare_last_show_outer_padding';
 export const KEY_SIDEBAR_COLLAPSED = 'quickshare_sidebar_collapsed';
 export const KEY_UI_THEME_MODE = 'quickshare_ui_theme_mode';
 
@@ -45,38 +44,6 @@ export async function setLastCardTheme(themeId: CardThemeId): Promise<void> {
     });
   } catch (e) {
     console.warn('[QuickShare] Failed to save card theme to storage:', e);
-  }
-}
-
-/**
- * 获取上次是否开启外层背景边距
- */
-export async function getLastShowOuterPadding(): Promise<boolean> {
-  try {
-    const storage = getStorageApi();
-    if (!storage) return true;
-    const data = await storage.local.get(KEY_LAST_SHOW_OUTER_PADDING);
-    if (typeof data[KEY_LAST_SHOW_OUTER_PADDING] === 'boolean') {
-      return data[KEY_LAST_SHOW_OUTER_PADDING];
-    }
-    return true;
-  } catch (e) {
-    return true;
-  }
-}
-
-/**
- * 保存用户是否开启外层背景边距
- */
-export async function setLastShowOuterPadding(show: boolean): Promise<void> {
-  try {
-    const storage = getStorageApi();
-    if (!storage) return;
-    await storage.local.set({
-      [KEY_LAST_SHOW_OUTER_PADDING]: show,
-    });
-  } catch (e) {
-    console.warn('[QuickShare] Failed to save show outer padding to storage:', e);
   }
 }
 

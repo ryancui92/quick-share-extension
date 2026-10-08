@@ -169,16 +169,9 @@ const platformConfig = computed(() => {
           },
         };
       default: {
-        let hostFavicon = '';
-        try {
-          const host = new URL(props.post.url).hostname;
-          hostFavicon = `https://${host}/favicon.ico`;
-        } catch {
-          hostFavicon = '';
-        }
         return {
           name: props.post.siteName || '网页',
-          faviconUrl: props.post.siteIconUrl || hostFavicon,
+          faviconUrl: props.post.siteIconUrl || '',
           style: {
             backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(100, 116, 139, 0.10)',
             color: isDark ? '#cbd5e1' : '#475569',
@@ -221,7 +214,7 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
   <div
     class="qs-card-wrapper"
     :data-theme="currentTheme.id"
-    :class="{ 'has-outer-padding': options.showOuterPadding, 'qs-wechat-article': isWechatArticle, 'has-reply-quote': !!quotedPost }"
+    :class="{ 'has-outer-padding': options.showOuterPadding, 'qs-wechat-article': isWechatArticle, 'has-reply-quote': !!quotedPost, 'has-native-quote': !!post.quoteHtml }"
     :style="themeCssVars"
   >
     <!-- 环境空间弥散光核层 (Ambient Glows) -->
@@ -405,6 +398,7 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
           v-if="!post.isExcerpt && post.media && post.media.length > 0"
           class="qs-media-gallery"
           :class="mediaLayout(post.media.length)"
+          :style="post.media.length > 1 ? { display: 'grid', gridTemplateColumns: `repeat(${post.media.length > 4 ? 3 : 2}, minmax(0, 1fr))` } : undefined"
         >
           <div
             v-for="(item, idx) in post.media"
@@ -442,6 +436,8 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
             />
           </div>
         </div>
+
+      <div v-if="post.quoteHtml && !post.isExcerpt" class="qs-native-quote" v-html="post.quoteHtml" />
 
       <div v-if="quotedPost" class="quick-share-quote-tweet qs-reply-quote">
         <div class="quick-share-quote-header qs-reply-quote-header">
@@ -517,15 +513,6 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
 .qs-card-wrapper[data-theme='raycast-dark'].has-outer-padding {
   padding: 36px;
 }
-.qs-card-wrapper[data-theme='raycast-dark'].has-outer-padding::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: .09;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch' seed='12'/%3E%3C/filter%3E%3Cpath fill='%23fff' filter='url(%23grain)' d='M0 0h160v160H0z'/%3E%3C/svg%3E");
-  background-size: 160px 160px;
-}
 .qs-card-wrapper[data-theme='raycast-dark'] .qs-card {
   padding: 28px;
 }
@@ -536,8 +523,8 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
   right: 12%;
   bottom: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, #b74b08 22%, #ffc35c 50%, #b74b08 78%, transparent);
-  box-shadow: 0 -2px 18px 2px #ed79042b;
+  background: linear-gradient(90deg, transparent, #a93c12 22%, #ff8a3e 50%, #a93c12 78%, transparent);
+  box-shadow: 0 -2px 18px 2px #ff632e38;
   pointer-events: none;
 }
 .qs-card-wrapper[data-theme='raycast-dark'] .qs-card-header {
@@ -568,6 +555,42 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
   padding: 30px;
   border-radius: 22px;
 }
+.qs-card-wrapper[data-theme='liquid-glass'] .qs-author-handle,
+.qs-card-wrapper[data-theme='liquid-glass'] .qs-footer-url {
+  opacity: 1;
+}
+/* A magnified copy of the ambient field is visible only through the bevel.
+   Keep this inside the card: negative insets get clipped during PNG export. */
+.qs-card-wrapper[data-theme='liquid-glass'] .qs-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--qs-outer-bg);
+  background-size: 118% 112%;
+  background-position: 42% 58%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  filter: blur(1px);
+  opacity: .42;
+  pointer-events: none;
+}
+.qs-card-wrapper[data-theme='liquid-glass'] .qs-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    linear-gradient(90deg, transparent 5%, rgba(255,255,255,.8) 25%, rgba(255,255,255,.96) 53%, rgba(255,255,255,.4) 82%, transparent 96%),
+    linear-gradient(90deg, transparent 4%, rgba(255,255,255,.48) 23%, rgba(255,255,255,.94) 57%, rgba(255,255,255,.68) 77%, transparent 96%);
+  background-size: 100% 2px, 100% 2px;
+  background-position: center top, center bottom;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
 .qs-card-wrapper[data-theme='craft-editorial'] .qs-card {
   padding: 30px;
   border-radius: 14px;
@@ -592,9 +615,10 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
   position: absolute;
   inset: 0;
   z-index: 2;
-  opacity: .035;
+  opacity: .18;
   pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch' seed='12'/%3E%3C/filter%3E%3Cpath fill='%23fff' filter='url(%23grain)' d='M0 0h160v160H0z'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper-grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.68 .86' numOctaves='3' stitchTiles='stitch' seed='12'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpath fill='%23fff' filter='url(%23paper-grain)' d='M0 0h160v160H0z'/%3E%3C/svg%3E");
   background-size: 160px 160px;
 }
 .qs-card-wrapper[data-theme='craft-editorial'] .qs-footer-url::before {
@@ -1032,6 +1056,13 @@ watch(() => props.post.author.avatarUrl, () => { accountAvatarFailed.value = fal
 .has-reply-quote .qs-card-content,
 .has-reply-quote .qs-media-gallery {
   margin-bottom: 0;
+}
+.has-native-quote .qs-media-gallery {
+  margin-bottom: 0;
+}
+.qs-native-quote :deep(.quick-share-quote-tweet) {
+  margin-top: 18px;
+  margin-bottom: 24px;
 }
 .has-reply-quote .qs-reply-quote {
   margin-top: 18px;

@@ -151,6 +151,19 @@ describe('Universal excerpt sharing', () => {
     expect(result?.siteIconUrl).toContain('/brand.png');
   });
 
+  it('prefers the favicon chosen by the current browser tab', async () => {
+    const previousBrowser = (globalThis as { browser?: unknown }).browser;
+    vi.stubGlobal('browser', { runtime: { id: 'test-extension', sendMessage: vi.fn(async () => ({ url: 'https://example.com/tab-icon.png' })) } });
+    try {
+      document.head.innerHTML = '<link rel="icon" href="/page-icon.png">';
+      document.body.innerHTML = '<article>Text</article>';
+      const result = await adapter.extract(document.querySelector('article')!, { selectedText: 'Text' });
+      expect(result?.siteIconUrl).toBe('https://example.com/tab-icon.png');
+    } finally {
+      vi.stubGlobal('browser', previousBrowser);
+    }
+  });
+
   it('keeps missing authors empty instead of attributing the article to the site', async () => {
     document.head.innerHTML = '<title>A useful article</title><meta property="og:site_name" content="Example"><meta property="article:author" content="https://example.com/user/1">';
     document.body.innerHTML = '<article>Text</article>';
@@ -165,6 +178,22 @@ describe('Universal excerpt sharing', () => {
     win.document.body.innerHTML = '<a id="js_name">公众号</a><div id="js_profile_qrcode"><img class="profile_avatar" data-src="https://example.com/account.png"></div><article><img src="https://example.com/cover.png">Text</article>';
     const result = await adapter.extract(win.document.querySelector('article') as unknown as HTMLElement, { selectedText: 'Text' });
     expect(result?.author).toEqual({ name: '公众号', avatarUrl: 'https://example.com/account.png' });
+    await win.happyDOM.close();
+  });
+
+  it('reads the real portrait from the bottom WeChat account bar', async () => {
+    const win = new Window({ url: 'https://mp.weixin.qq.com/s/G4FVwl--K4EIGXI589yaBQ' });
+    win.document.body.innerHTML = '<a id="js_name">数字生命卡兹克</a><article><img src="https://example.com/article-cover.png">Text</article><div id="js_bottom_profile"><img class="wx_follow_avatar" data-src="https://mmbiz.qpic.cn/account-avatar/0"><img src="https://example.com/action-icon.svg"></div>';
+    const result = await adapter.extract(win.document.querySelector('article') as unknown as HTMLElement, { selectedText: 'Text' });
+    expect(result?.author).toEqual({ name: '数字生命卡兹克', avatarUrl: 'https://mmbiz.qpic.cn/account-avatar/0' });
+    await win.happyDOM.close();
+  });
+
+  it('reads a WeChat account portrait set as a background image', async () => {
+    const win = new Window({ url: 'https://mp.weixin.qq.com/s/article' });
+    win.document.body.innerHTML = '<a id="js_name">公众号</a><article>Text</article><div id="js_bottom_profile"><span class="wx_follow_avatar" style="background-image:url(https://mmbiz.qpic.cn/background-avatar/0)"></span></div>';
+    const result = await adapter.extract(win.document.querySelector('article') as unknown as HTMLElement, { selectedText: 'Text' });
+    expect(result?.author.avatarUrl).toBe('https://mmbiz.qpic.cn/background-avatar/0');
     await win.happyDOM.close();
   });
 

@@ -64,15 +64,11 @@ describe('简洁分享编辑器', () => {
     expect(wrapper.get('footer .theme-picker').findAll('button')).toHaveLength(
       3
     );
-    expect(
-      wrapper.get('footer [role="switch"]').attributes('aria-checked')
-    ).toBe('true');
+    expect(wrapper.find('footer [role="switch"]').exists()).toBe(false);
   });
-  it('updates background padding in the export source', async () => {
+  it('keeps the default background padding in the export source', async () => {
     await open();
-    await wrapper.get('[aria-label="背景留白"]').trigger('click');
-    await vi.advanceTimersByTimeAsync(150);
-    expect(wrapper.find('.has-outer-padding').exists()).toBe(false);
+    expect(wrapper.find('.has-outer-padding').exists()).toBe(true);
     expect(wrapper.get('.qs-excerpt-wrapper').text()).toContain('核心金句');
   });
   it('exports the unscaled offscreen source, never the preview image', async () => {
@@ -99,7 +95,7 @@ describe('简洁分享编辑器', () => {
     await open();
     expect(writeClipboard).toHaveBeenCalledTimes(1);
     expect(wrapper.get('footer .export-actions > .copy-notice').text()).toBe('已复制');
-    await wrapper.get('[aria-label="背景留白"]').trigger('click');
+    await wrapper.findAll('footer .theme-choice')[1].trigger('click');
     await vi.advanceTimersByTimeAsync(150);
     expect(writeClipboard).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(2000);
@@ -128,9 +124,20 @@ describe('简洁分享编辑器', () => {
     expect(parseFloat(dialog.style.height)).toBeLessThanOrEqual(810);
     expect(parseFloat(dialog.style.height)).toBeLessThanOrEqual(window.innerHeight - 32);
   });
-  it('closes with Escape' , async () => {
+  it('closes with Escape even when the host page stops keydown bubbling', async () => {
     await open();
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    const target = document.createElement('input');
+    document.body.appendChild(target);
+    const stopOnHostPage = (event: KeyboardEvent) => event.stopPropagation();
+    document.addEventListener('keydown', stopOnHostPage);
+    try {
+      const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true });
+      target.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+    } finally {
+      document.removeEventListener('keydown', stopOnHostPage);
+      target.remove();
+    }
     expect(wrapper.emitted('close')).toHaveLength(1);
   });
   it('provides a retry if rendering fails', async () => {

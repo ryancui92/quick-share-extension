@@ -3,6 +3,7 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import { getAdapterForUrl } from '@/adapters';
 import { extractSelection, getSelectionEntity } from '@/utils/selection';
+import { createContextMenuSelection } from '@/utils/context-menu-selection';
 import '@/assets/style.css';
 
 export default defineContentScript({
@@ -76,6 +77,12 @@ export default defineContentScript({
     });
 
     // 划选快捷悬浮按钮监听
+    const contextMenuSelection = createContextMenuSelection(adapter);
+
+    // Some sites clear the DOM selection when their context menu opens. Keep the
+    // original range before page handlers get a chance to change it.
+    document.addEventListener('contextmenu', () => contextMenuSelection.capture(window.getSelection()), true);
+
     const handleSelectionChange = () => {
       if (!ctx.isValid || !appInstance) return;
       const selection = window.getSelection();
@@ -96,6 +103,7 @@ export default defineContentScript({
         appInstance.hideFloatingButton?.();
         return;
       }
+      contextMenuSelection.capture(selection);
 
       if (selection.rangeCount > 0) {
         const range = selection.getRangeAt(0);
@@ -146,10 +154,8 @@ export default defineContentScript({
           if (typeof message === 'object' && message !== null && 'type' in message) {
             const msg = message as { type: string; selectionText?: string };
             if (msg.type === 'QUICK_SHARE_SELECTION_TRIGGER') {
-              const selection = window.getSelection();
-              if (!selection?.rangeCount) return;
-              const range = selection.getRangeAt(0).cloneRange();
-              if (!getSelectionEntity(adapter, range)) return;
+              const range = contextMenuSelection.take(window.getSelection(), msg.selectionText || '');
+              if (!range) return;
               const postPromise = extractSelection(adapter, range);
               if (appInstance && ctx.isValid) {
                 appInstance.openShareModal(postPromise);

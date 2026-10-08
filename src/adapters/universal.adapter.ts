@@ -7,6 +7,56 @@ import { sanitizeWebExcerpt, webUrl } from '@/utils/web-excerpt';
 
 export const EXCLUDED_SELECTION = 'input, textarea, select, button, [contenteditable]:not([contenteditable="false"]), [role="textbox"], nav, [role="navigation"], script, style, noscript, [hidden], [aria-hidden="true"], quick-share-ui-container';
 
+/** WeChat may put the account portrait in its bottom author bar instead of the profile popup. */
+function wechatAccountAvatarUrl(doc: Document): string | undefined {
+  const selectors = [
+    '#js_bottom_profile .wx_follow_avatar img',
+    '#js_bottom_profile img.wx_follow_avatar',
+    '#js_bottom_profile img[class*="avatar"]',
+    '#js_bottom_profile img[id*="avatar"]',
+    '.wx_follow_avatar img',
+    'img.wx_follow_avatar',
+    '#js_profile_qrcode .profile_avatar',
+    'img.profile_avatar',
+  ];
+  for (const selector of selectors) {
+    for (const image of doc.querySelectorAll<HTMLImageElement>(selector)) {
+      const url = webUrl(image.getAttribute('data-src') || image.getAttribute('data-original') || image.getAttribute('src'), doc.baseURI);
+      if (url) return url;
+    }
+  }
+
+  // Some article templates render the portrait as a background image.
+  const portrait = doc.querySelector<HTMLElement>('#js_bottom_profile .wx_follow_avatar, #js_bottom_profile .profile_avatar, #js_bottom_profile [class*="avatar"], #js_profile_qrcode .profile_avatar');
+  const background = portrait?.style.backgroundImage || (portrait && doc.defaultView?.getComputedStyle(portrait).backgroundImage) || '';
+  const backgroundUrl = background.match(/url\(\s*["']?([^"')]+)["']?\s*\)/i)?.[1];
+  if (backgroundUrl) return webUrl(backgroundUrl, doc.baseURI);
+
+  // Only search inside the account bar; an article cover must never become the author avatar.
+  for (const image of doc.querySelectorAll<HTMLImageElement>('#js_bottom_profile img')) {
+    const url = webUrl(image.getAttribute('data-src') || image.getAttribute('src'), doc.baseURI);
+    if (url && /(?:mmbiz|qpic|wx\.qlogo)\./i.test(new URL(url).hostname)) return url;
+  }
+  return undefined;
+}
+
+/** The browser's chosen tab icon can differ from the first favicon link in the page. */
+async function currentTabIconUrl(doc: Document): Promise<string | undefined> {
+  if (typeof browser !== 'undefined' && browser.runtime?.id) {
+    try {
+      const result = await browser.runtime.sendMessage({ type: 'GET_TAB_FAVICON' }) as { url?: string } | undefined;
+      const tabIcon = result?.url?.startsWith('data:image/') ? result.url : webUrl(result?.url, doc.baseURI);
+      if (tabIcon) return tabIcon;
+    } catch { /* The page favicon remains available when the tab API is unavailable. */ }
+  }
+  const iconLinks = Array.from(doc.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]'));
+  for (const link of iconLinks.reverse()) {
+    const icon = webUrl(link.href, doc.baseURI);
+    if (icon) return icon;
+  }
+  return undefined;
+}
+
 /** Ordinary pages are excerpt-only: no page observer or full-article button. */
 export class UniversalAdapter extends BaseAdapter {
   readonly platform = 'universal';
@@ -43,12 +93,10 @@ export class UniversalAdapter extends BaseAdapter {
       wechat ? doc.querySelector('#js_name')?.textContent?.trim() : '',
       meta('meta[name="author"]'), meta('meta[property="article:author"]'),
     ].find(value => value && !/^https?:\/\//i.test(value)) || '';
-    const accountAvatar = wechat ? doc.querySelector<HTMLImageElement>('#js_profile_qrcode .profile_avatar, img.profile_avatar') : null;
-    const avatarUrl = webUrl(accountAvatar?.getAttribute('data-src') || accountAvatar?.getAttribute('src'), doc.baseURI);
+    const avatarUrl = wechat ? wechatAccountAvatarUrl(doc) : undefined;
     const title = (wechat ? doc.querySelector('#activity-name')?.textContent?.trim() : '')
       || meta('meta[property="og:title"]') || doc.title || entity.querySelector('h1')?.textContent || '';
-    const icon = webUrl(doc.querySelector('link[rel~="icon"]')?.getAttribute('href'), doc.baseURI)
-      || new URL('/favicon.ico', url).href;
+    const icon = await currentTabIconUrl(doc);
     const canonical = webUrl(doc.querySelector('link[rel="canonical"]')?.getAttribute('href'), doc.baseURI);
     // A foreign canonical must never redirect attribution to another site.
     const shareUrl = canonical && new URL(canonical).origin === url.origin ? canonical : url.href;
@@ -79,7 +127,7 @@ export class UniversalAdapter extends BaseAdapter {
       url: cleanShareUrl(shareUrl),
       author: { name: author, ...(avatarUrl ? { avatarUrl: await fetchImageAsDataUrl(avatarUrl) } : {}) },
       siteName,
-      siteIconUrl: icon,
+      siteIconUrl: icon ? await fetchImageAsDataUrl(icon) : undefined,
       title: title.trim() || undefined,
       createdAt,
       content: selection.selectedText,

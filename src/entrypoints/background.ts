@@ -14,7 +14,7 @@ export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(() => {
     browser.contextMenus.create({
       id: 'quick-share-selection',
-      title: '使用 QuickShare 生成金句卡片',
+      title: 'QuickShare',
       contexts: ['selection'],
     });
   });
@@ -22,15 +22,28 @@ export default defineBackground(() => {
   // 处理右键菜单点击
   browser.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === 'quick-share-selection' && tab?.id) {
-      browser.tabs.sendMessage(tab.id, {
+      void browser.tabs.sendMessage(tab.id, {
         type: 'QUICK_SHARE_SELECTION_TRIGGER',
         selectionText: info.selectionText,
+      }).catch((error) => {
+        console.warn('[QuickShare Background] Selection message failed:', error);
       });
     }
   });
 
   // 处理跨域受限图片的无 CORS 阻拦代理抓取
-  browser.runtime.onMessage.addListener((message: any) => {
+  browser.runtime.onMessage.addListener((message: any, sender: { tab?: { id?: number; favIconUrl?: string } }) => {
+    if (message?.type === 'GET_TAB_FAVICON') {
+      return (async () => {
+        if (!sender.tab?.id) return { url: '' };
+        try {
+          const tab = await browser.tabs.get(sender.tab.id);
+          return { url: tab.favIconUrl || sender.tab.favIconUrl || '' };
+        } catch {
+          return { url: sender.tab.favIconUrl || '' };
+        }
+      })();
+    }
     if (message?.type === 'FETCH_IMAGE_BASE64' && message.url) {
       return (async () => {
         try {

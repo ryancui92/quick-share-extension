@@ -120,21 +120,21 @@ export const BUILTIN_THEMES: Record<BuiltinCardThemeId, QuickShareTheme> = {
     id: 'raycast-dark',
     name: 'Raycast 曜石',
     author: 'QuickShare',
-    description: '深黑面板、琥珀辉光、细腻颗粒与精密发光边缘',
-    previewColor: 'radial-gradient(ellipse at 50% 115%, #ffb21c 0%, #9c3306 25%, #0a0807 65%)',
+    description: '深黑面板、明亮橙色辉光与精密发光边缘',
+    previewColor: 'radial-gradient(ellipse at 50% 115%, #ff8a35 0%, #b84512 29%, #0a0807 68%)',
     ambient: {
       isDark: true,
-      outerBackground: 'radial-gradient(ellipse at 0% 0%, #9b4c09 0%, transparent 42%), radial-gradient(ellipse at 100% 100%, #773006 0%, transparent 42%), #100a06',
+      outerBackground: 'radial-gradient(ellipse at 0% 0%, #c85219 0%, transparent 48%), radial-gradient(ellipse at 100% 100%, #b34116 0%, transparent 46%), #160b08',
       glows: [
         {
-          color: 'rgba(255, 154, 24, 0.8)', // 暖琥珀破晓光晕
+          color: 'rgba(255, 110, 43, 0.88)',
           position: '45% 104%',
           size: '540px 240px',
           blur: '35px',
           opacity: 0.9,
         },
         {
-          color: 'rgba(233, 83, 8, 0.4)',
+          color: 'rgba(255, 101, 48, 0.48)',
           position: '95% 10%',
           size: '360px 160px',
           blur: '50px',
@@ -143,12 +143,12 @@ export const BUILTIN_THEMES: Record<BuiltinCardThemeId, QuickShareTheme> = {
       ],
     },
     card: {
-      background: 'radial-gradient(ellipse 75% 130px at 50% 110%, rgba(244, 111, 9, 0.26), transparent 85%), linear-gradient(155deg, #101011 0%, #060607 55%, #0b0806 100%)',
+      background: 'radial-gradient(ellipse 75% 130px at 50% 110%, rgba(248, 92, 32, 0.25), transparent 85%), linear-gradient(155deg, #101011 0%, #060607 55%, #0b0806 100%)',
       backdropFilter: 'none',
       border: '1px solid rgba(255, 255, 255, 0.14)',
       borderHighlight: 'linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.02) 100%)',
       shadow: '0 20px 50px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.7)',
-      innerGlow: 'inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(255, 149, 34, 0.3)',
+      innerGlow: 'inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(255, 112, 48, 0.34)',
     },
     typography: {
       fontFamily: 'sans',
@@ -191,21 +191,21 @@ export const BUILTIN_THEMES: Record<BuiltinCardThemeId, QuickShareTheme> = {
   // 2. 冰川玻璃：无纹理、无线条的连续柔光渐变。
   'liquid-glass': {
     version: 1, id: 'liquid-glass', name: '冰川玻璃', author: 'QuickShare',
-    description: '冰蓝与淡紫平滑交融，轻盈通透的浅色毛玻璃',
-    previewColor: 'linear-gradient(135deg, #b8eafa, #e6efff 55%, #dcd8fa)',
+    description: '低饱和冰蓝与浅紫柔光，通透的浅色玻璃',
+    previewColor: 'linear-gradient(135deg, #cfe0e7, #e9edf2 55%, #dedbea)',
     ambient: {
       isDark: false,
-      outerBackground: 'linear-gradient(135deg, #bceafa 0%, #dceeff 42%, #d4e3fc 72%, #dedafa 100%)',
+      outerBackground: 'radial-gradient(ellipse at 7% 12%, rgba(133,177,195,.52), transparent 56%), radial-gradient(ellipse at 94% 88%, rgba(168,161,192,.46), transparent 58%), linear-gradient(135deg, #d3e1e7 0%, #e1e9ef 45%, #dbe2ec 76%, #e2dbe9 100%)',
       glows: [], noiseOpacity: 0,
     },
     card: {
-      background: 'linear-gradient(145deg, rgba(255,255,255,.78), rgba(248,250,255,.68))',
-      backdropFilter: 'blur(28px) saturate(115%)',
-      border: '1px solid rgba(255,255,255,.88)',
-      shadow: '0 12px 32px -12px rgba(70,104,154,.22)',
-      innerGlow: 'inset 0 1px 0 rgba(255,255,255,.6)',
+      background: 'linear-gradient(145deg, rgba(255,255,255,.58), rgba(247,249,252,.42))',
+      backdropFilter: 'blur(10px) saturate(108%)',
+      border: '1px solid transparent',
+      shadow: '0 16px 32px -18px rgba(47,65,83,.28), 0 3px 8px -4px rgba(47,65,83,.16)',
+      innerGlow: 'inset 0 1px 2px rgba(255,255,255,.28), inset 0 -1px 2px rgba(67,83,102,.08)',
     },
-    typography: { fontFamily: 'sans', textPrimary: '#192330', textSecondary: '#7d889c', textMuted: '#98a2b2' },
+    typography: { fontFamily: 'sans', textPrimary: '#192330', textSecondary: '#536479', textMuted: '#718095' },
     components: {
       promptCard: { background: 'rgba(255,255,255,.4)', border: '1px solid rgba(133,159,193,.18)', borderRadius: '12px', headerColor: '#597b9b' },
       quoteBlock: { background: 'rgba(158,194,223,.09)', borderColor: '#9bbbd4', borderRadius: '0 6px 6px 0' },
@@ -218,12 +218,16 @@ export const BUILTIN_THEMES: Record<BuiltinCardThemeId, QuickShareTheme> = {
   'craft-editorial': {
     version: 1, id: 'craft-editorial', name: '暖纸墨色', author: 'QuickShare',
     description: '暖白纸感、墨色宋体与一抹朱红',
-    previewColor: 'linear-gradient(135deg, #e9e2d7, #faf7f0)',
-    ambient: { isDark: false, outerBackground: 'linear-gradient(145deg, #f0ece5, #eae5dc)', glows: [], noiseOpacity: .035 },
+    previewColor: 'linear-gradient(135deg, #e5dac8, #f7f1e7 55%, #e9ddca)',
+    ambient: {
+      isDark: false,
+      outerBackground: 'radial-gradient(ellipse at 20% 5%, rgba(255,252,245,.82), transparent 58%), radial-gradient(ellipse at 90% 92%, rgba(205,187,156,.3), transparent 62%), linear-gradient(145deg, #f0e9dd, #e8ddcb)',
+      glows: [], noiseOpacity: .1,
+    },
     card: {
-      background: 'linear-gradient(160deg, #fcfaf6, #f7f4ee)',
-      border: '1px solid rgba(255,255,255,.65)',
-      shadow: '0 12px 30px -14px rgba(76,65,51,.2)',
+      background: 'linear-gradient(150deg, #fbf8f1, #f7f1e7)',
+      border: '1px solid rgba(255,253,247,.78)',
+      shadow: '0 12px 30px -14px rgba(76,65,51,.18)',
       innerGlow: 'none',
     },
     typography: { fontFamily: 'serif', textPrimary: '#292824', textSecondary: '#8c8881', textMuted: '#a49d93' },

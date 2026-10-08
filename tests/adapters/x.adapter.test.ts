@@ -28,6 +28,64 @@ describe('XAdapter 结构解析与数据提取测试', () => {
   });
 
   describe('2. 推文数据提取与换行/图片保真', () => {
+    it('keeps an attached image separate from the quoted post', async () => {
+      document.body.innerHTML = `<article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/author">Author</a></div>
+        <div data-testid="tweetText">My comment</div>
+        <div data-testid="tweetPhoto"><img src="https://pbs.twimg.com/media/own?name=small"></div>
+        <div role="link" data-testid="quoteTweet">
+          <div data-testid="User-Name"><a href="/quoted">Quoted author</a></div>
+          <div data-testid="tweetText">Quoted text</div>
+          <div data-testid="tweetPhoto"><img src="https://pbs.twimg.com/media/quoted?name=small"></div>
+        </div>
+        <a href="/author/status/123"><time datetime="2026-09-23T00:00:00Z">Sep 23</time></a>
+      </article>`;
+      const post = await adapter.extract(document.querySelector<HTMLElement>('article')!);
+      expect(post?.contentHtml).toContain('My comment');
+      expect(post?.contentHtml).not.toContain('Quoted text');
+      expect(post?.quoteHtml).toContain('Quoted text');
+      expect(post?.media?.map(item => item.url)).toEqual(['https://pbs.twimg.com/media/own?name=large']);
+    });
+
+    it('does not turn a text-only quote avatar or link preview into a blurry video', async () => {
+      document.body.innerHTML = `<article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/TimothyYe">Timothy</a></div>
+        <div data-testid="tweetText">My comment</div>
+        <div role="link" data-testid="quoteTweet">
+          <div data-testid="User-Name"><a href="/TimothyYe">Timothy</a></div>
+          <div style="background-image: url('https://pbs.twimg.com/profile_images/low-res-avatar.jpg')"></div>
+          <div data-testid="tweetText">Text-only quoted post</div>
+          <div data-testid="card.wrapper"><img src="https://pbs.twimg.com/media/link-preview?name=small"></div>
+          <a href="https://x.com/TimothyYe/status/previous"><img src="https://pbs.twimg.com/media/unmarked-link-preview?name=small"></a>
+        </div>
+        <a href="/TimothyYe/status/2102700990071963988"><time>Sep 23</time></a>
+      </article>`;
+      const post = await adapter.extract(document.querySelector<HTMLElement>('article')!);
+      expect(post?.quoteHtml).toContain('Text-only quoted post');
+      expect(post?.quoteHtml).not.toContain('quick-share-quote-media-grid');
+      expect(post?.quoteHtml).not.toContain('video thumbnail');
+      expect(post?.media).toBeUndefined();
+    });
+
+    it('keeps a video when it is attached to the quoted post', async () => {
+      document.body.innerHTML = `<article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/author">Author</a></div>
+        <div data-testid="tweetText">My comment</div>
+        <div role="link" data-testid="quoteTweet">
+          <div data-testid="User-Name"><a href="/quoted">Quoted author</a></div>
+          <div data-testid="tweetText">Quoted post with video</div>
+          <div data-testid="videoComponent">
+            <div style="background-image: url('https://pbs.twimg.com/amplify_video_thumb/123/img/cover.jpg')"></div>
+          </div>
+        </div>
+        <a href="/author/status/123"><time>Sep 23</time></a>
+      </article>`;
+      const post = await adapter.extract(document.querySelector<HTMLElement>('article')!);
+      expect(post?.quoteHtml).toContain('video thumbnail');
+      expect(post?.quoteHtml).toContain('amplify_video_thumb/123/img/cover.jpg');
+      expect(post?.media).toBeUndefined();
+    });
+
     it('正确提取单推文作者、handle、头像、正文及规范 URL', async () => {
       document.body.innerHTML = X_TWEET_SIMPLE_HTML;
       const tweetEl = document.querySelector<HTMLElement>('article[data-testid="tweet"]')!;

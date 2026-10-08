@@ -162,6 +162,22 @@ describe('ShareCard 组件 DOM 结构渲染与保真度测试', () => {
     expect(gallery.findAll('img').map(img => img.attributes('src'))).toEqual(media.map(item => item.url));
   });
 
+  it('places a native quoted post below the attached photos', () => {
+    const wrapper = mount(ShareCard, { props: {
+      post: {
+        ...samplePost,
+        platform: 'x',
+        contentHtml: '<p>My comment</p>',
+        media: [{ type: 'image', url: 'https://example.com/own.png' }],
+        quoteHtml: '<div class="quick-share-quote-tweet">Quoted post</div>',
+      },
+      options: defaultOptions,
+    } });
+    expect(wrapper.html().indexOf('My comment')).toBeLessThan(wrapper.html().indexOf('own.png'));
+    expect(wrapper.html().indexOf('own.png')).toBeLessThan(wrapper.html().indexOf('Quoted post'));
+    expect(wrapper.findAll('.quick-share-quote-tweet')).toHaveLength(1);
+  });
+
   describe('Web article headers', () => {
     it('puts the title and source date at the top when there is no author', () => {
       const wrapper = mount(ShareCard, { props: {

@@ -46,14 +46,16 @@ jobs:
       - name: Generate release tag
         id: tag
         run: |
-          TAG_NAME="v$(date +'%Y.%m.%d-%H%M%S')"
+          TAG_NAME="v$(node -p "require('./package.json').version")"
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Upload ZIP artifacts
         uses: actions/upload-artifact@v4
         with:
           name: quick-share-extension-zips
-          path: .output/*.zip
+          path: |
+            .output/*-chrome.zip
+            .output/*-firefox.zip
           retention-days: 30
 
       - name: Create GitHub Release
@@ -61,7 +63,9 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag_name }}
           name: Release ${{ steps.tag.outputs.tag_name }}
-          files: .output/*.zip
+          files: |
+            .output/*-chrome.zip
+            .output/*-firefox.zip
           generate_release_notes: true
           draft: false
           prerelease: false
